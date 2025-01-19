@@ -1,6 +1,6 @@
-import sys
+#import sys
 from PyQt5.QtWidgets import (
-    QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar
+    QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu
 )
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 import vtk
@@ -34,6 +34,8 @@ class MainWindow(QMainWindow):
     def create_menu_bar(self):
         #erstellen der Menüleiste
         menu_bar = self.menuBar()
+
+        # File Menü-------------------------------------------------------------------
         file_menu = menu_bar.addMenu("File") # erstellen von "File"-Menü
 
         # Aktion "Load" für das Laden von Modellen
@@ -60,6 +62,18 @@ class MainWindow(QMainWindow):
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        # Farbschema Menü-----------------------------------------------------------------
+        theme_menu = QMenu("Theme", self) #Name Theme > ModiWechsel auf deutsch nd so schön
+        menu_bar.addMenu(theme_menu)
+
+        light_theme_action = QAction("Hell", self)
+        light_theme_action.triggered.connect(self.set_light_theme)
+        theme_menu.addAction(light_theme_action)
+
+        dark_theme_action = QAction("Dunkel", self)
+        dark_theme_action.triggered.connect(self.set_dark_theme)
+        theme_menu.addAction(dark_theme_action)
 
     def load_model(self):
         #öffnet DateiDialog um Nodell zu laden
@@ -121,6 +135,15 @@ class MainWindow(QMainWindow):
     def update_status(self, message):
         self.status_bar.showMessage(message)
 
+    #hintergrundfarben
+    def set_light_theme(self):
+        self.vtk_widget.set_background_color((1.0, 1.0, 1.0))  # Weißer Hintergrund
+        self.update_status("Set theme: Light")
+
+    def set_dark_theme(self):
+        self.vtk_widget.set_background_color((0.1, 0.1, 0.1))  # Dunkler Hintergrund
+        self.update_status("Set theme: Dark")
+
 
 class VTKRenderWidget(QWidget):
     def __init__(self):
@@ -134,6 +157,8 @@ class VTKRenderWidget(QWidget):
         self.renderer = vtk.vtkRenderer()
         self.vtk_widget.GetRenderWindow().AddRenderer(self.renderer)
 
+        self.set_background_color((0.1,0.1,0.1)) # dunkler Hintergrund standard
+
         self.vtk_widget.GetRenderWindow().Render()
         self.vtk_widget.Start()
 
@@ -146,7 +171,7 @@ class VTKRenderWidget(QWidget):
         reader.SetFileName(file_name) #Dateiname setzen
         reader.Update() # laden der Datei
 
-        # Prüfen, ob Punkte im Modell vorhanden sind funktioniert no nd
+        # Prüfen, ob Punkte im Modell vorhanden sind funktioniert no nd!!!!!
         output = reader.GetOutput()
         if output.GetNumberOfPoints() == 0:
             print("Fehler: .obj Datei enthält keine Punkte. Datei prüfen!")
@@ -175,3 +200,8 @@ class VTKRenderWidget(QWidget):
         self.renderer.ResetCamera()
 
         self.vtk_widget.GetRenderWindow().Render()
+
+    #Hintergrundstil
+    def set_background_color(self, color):
+        self.renderer.SetBackground(color) # farbe ändern
+        self.vtk_widget.GetRenderWindow().Render() #aktualisieren
