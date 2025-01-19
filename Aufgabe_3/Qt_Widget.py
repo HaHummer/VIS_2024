@@ -1,6 +1,6 @@
 #import sys
 from PyQt5.QtWidgets import (
-    QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu
+    QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu, QColorDialog
 )
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 import vtk
@@ -31,7 +31,7 @@ class MainWindow(QMainWindow):
         # Modellinstanz
         self.model = mbsModel()
 
-        # Standard-Theme setzen (dunkel standarf)
+        # Standard-Theme setzen (dunkel standard)
         self.set_dark_theme()        
 
     def create_menu_bar(self):
@@ -77,6 +77,10 @@ class MainWindow(QMainWindow):
         dark_theme_action = QAction("Dunkel", self)
         dark_theme_action.triggered.connect(self.set_dark_theme)
         theme_menu.addAction(dark_theme_action)
+
+        custom_color_action = QAction("Benutzerdefinierter Hintergrund", self)# benutzerdefinierte Farbe
+        custom_color_action.triggered.connect(self.select_custom_color)
+        theme_menu.addAction(custom_color_action)        
 
     def load_model(self):
         #öffnet DateiDialog um Nodell zu laden
@@ -138,7 +142,7 @@ class MainWindow(QMainWindow):
     def update_status(self, message):
         self.status_bar.showMessage(message)
 
-    #hintergrundfarben
+    # Hintergrundfarben-------------------------------------------------------------------------
     def set_light_theme(self):
         self.vtk_widget.set_background_color((1.0, 1.0, 1.0))  # Weißer Hintergrund
         self.apply_stylesheet("light") # auch ändern am Fenster
@@ -148,6 +152,20 @@ class MainWindow(QMainWindow):
         self.vtk_widget.set_background_color((0.1, 0.1, 0.1))  # Dunkler Hintergrund
         self.apply_stylesheet("dark") # auch ändern am Fenster
         self.update_status("Set theme: Dark")
+
+    def select_custom_color(self):        #Öffnet Farbauswahldialog + setzen der gewählten Farbe als Hintergrund
+
+        color = QColorDialog.getColor()  # Zeigt die Farbpalette an
+        if color.isValid():  # Überprüft, ob  gültige Farbe gewählt
+            # RGB-Werte für VTK (normiert zwischen 0 und 1) für innen
+            rgb = (color.redF(), color.greenF(), color.blueF())  # Erhalte RGB als Tupel
+            self.vtk_widget.set_background_color(rgb)  # Setzt die Hintergrundfarbe im VTK-Renderer
+        
+            # Hexadezimalwert für die GUI für den äußeren Rand
+            hex_color = color.name()  # Erhalte Hex-Wert (z. B. #RRGGBB)
+            self.setStyleSheet(f"QMainWindow {{background-color: {hex_color};}}")  # GUI-Hintergrund ändern
+
+        self.update_status(f"Custom color set: {hex_color}")
 
     def apply_stylesheet(self, theme):
         if theme == "light":
