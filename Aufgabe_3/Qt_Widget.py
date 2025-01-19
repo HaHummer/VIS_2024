@@ -31,6 +31,9 @@ class MainWindow(QMainWindow):
         # Modellinstanz
         self.model = mbsModel()
 
+        # Standard-Theme setzen (dunkel standarf)
+        self.set_dark_theme()        
+
     def create_menu_bar(self):
         #erstellen der Menüleiste
         menu_bar = self.menuBar()
@@ -138,12 +141,37 @@ class MainWindow(QMainWindow):
     #hintergrundfarben
     def set_light_theme(self):
         self.vtk_widget.set_background_color((1.0, 1.0, 1.0))  # Weißer Hintergrund
+        self.apply_stylesheet("light") # auch ändern am Fenster
         self.update_status("Set theme: Light")
 
     def set_dark_theme(self):
         self.vtk_widget.set_background_color((0.1, 0.1, 0.1))  # Dunkler Hintergrund
+        self.apply_stylesheet("dark") # auch ändern am Fenster
         self.update_status("Set theme: Dark")
 
+    def apply_stylesheet(self, theme):
+        if theme == "light":
+            # Stylesheet für hell lt. Internet
+            stylesheet = """
+                QMainWindow {background-color: #ffffff; color: #000000;}
+                QMenuBar {background-color: #f0f0f0; color: #000000;}
+                QMenu {background-color: #f0f0f0; color: #000000;}
+                QStatusBar {background-color: #e0e0e0; color: #000000;}
+                QPushButton {background-color: #e0e0e0; color: #000000; border: 1px solid #c0c0c0;}
+                QPushButton:hover {background-color: #d6d6d6;}
+            """
+        if theme == "dark":
+            # Stylesheet dunkel
+            stylesheet = """
+                QMainWindow {background-color: #2e2e2e; color: #ffffff;}
+                QMenuBar {background-color: #3c3c3c; color: #ffffff;}
+                QMenu {background-color: #3c3c3c; color: #ffffff;}
+                QStatusBar {background-color: #2e2e2e; color: #ffffff;}
+                QPushButton {background-color: #444444; color: #ffffff; border: 1px solid #5e5e5e;}
+                QPushButton:hover {background-color: #555555;}
+            """
+        # Anwenden des Stylesheets
+        self.setStyleSheet(stylesheet)
 
 class VTKRenderWidget(QWidget):
     def __init__(self):
@@ -156,8 +184,6 @@ class VTKRenderWidget(QWidget):
 
         self.renderer = vtk.vtkRenderer()
         self.vtk_widget.GetRenderWindow().AddRenderer(self.renderer)
-
-        self.set_background_color((0.1,0.1,0.1)) # dunkler Hintergrund standard
 
         self.vtk_widget.GetRenderWindow().Render()
         self.vtk_widget.Start()
