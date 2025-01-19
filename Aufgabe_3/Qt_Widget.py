@@ -2,6 +2,8 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu, QColorDialog
 )
+from PyQt5.QtGui import QScreen
+from PyQt5.QtWidgets import QFileDialog
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 import vtk
 from mbsModel import mbsModel
@@ -61,11 +63,6 @@ class MainWindow(QMainWindow):
         import_action.triggered.connect(self.saveGeometry)
         file_menu.addAction(import_action)
 
-        # Aktion "Exit" zum Beenden der Anwendung
-        exit_action = QAction("Exit", self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-
         # Farbschema Menü-----------------------------------------------------------------
         theme_menu = QMenu("Theme", self) #Name Theme > ModiWechsel auf deutsch nd so schön
         menu_bar.addMenu(theme_menu)
@@ -80,7 +77,17 @@ class MainWindow(QMainWindow):
 
         custom_color_action = QAction("Benutzerdefinierter Hintergrund", self)# benutzerdefinierte Farbe
         custom_color_action.triggered.connect(self.select_custom_color)
-        theme_menu.addAction(custom_color_action)        
+        theme_menu.addAction(custom_color_action)
+
+        #Screenshot von Modell Menü-------------------------------------------------------
+        screenshot_action = QAction("Bildschirmfoto", self)
+        screenshot_action.triggered.connect(self.take_screenshot)
+        file_menu.addAction(screenshot_action)
+
+        # Aktion "Exit" zum Beenden der Anwendung
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
 
     def load_model(self):
         #öffnet DateiDialog um Nodell zu laden
@@ -191,6 +198,20 @@ class MainWindow(QMainWindow):
         # Anwenden des Stylesheets
         self.setStyleSheet(stylesheet)
 
+    #Screenshot----------------------------------------
+    def take_screenshot(self):     #Ruft die Screenshot-Funktion des VTKRenderWidgets auf und speichert die Datei.
+        
+        # Datei-Dialog öffnen, um den Speicherort festzulegen
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save VTK Screenshot", "", "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        # Screenshot des VTK-Renderers aufnehmen und speichern
+        self.vtk_widget.save_screenshot(file_path) #verbindung zu vtkRenderWidget
+        self.status_bar.showMessage(f"VTK Screenshot saved to {file_path}")
+
 class VTKRenderWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -249,3 +270,18 @@ class VTKRenderWidget(QWidget):
     def set_background_color(self, color):
         self.renderer.SetBackground(color) # farbe ändern
         self.vtk_widget.GetRenderWindow().Render() #aktualisieren
+
+    #Screenshot----------------------------------------------------------------
+    def save_screenshot(self, file_path: str): #Speichert Screenshot nur von VTK-Renderer
+        
+        # VTK Screenshot
+        render_window = self.vtk_widget.GetRenderWindow()
+        window_to_image = vtk.vtkWindowToImageFilter()
+        window_to_image.SetInput(render_window)
+        window_to_image.Update()
+
+        # Bild in Datei schreiben
+        writer = vtk.vtkPNGWriter()
+        writer.SetFileName(file_path)
+        writer.SetInputConnection(window_to_image.GetOutputPort())
+        writer.Write()
