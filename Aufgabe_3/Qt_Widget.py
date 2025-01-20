@@ -10,7 +10,6 @@ from mbsModel import mbsModel
 from inputfilereader import readInput  # pfadindifferenzen mit weiter äußerem inputfilereader! -> umbenennung zu inputfilereader__
 
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -83,6 +82,22 @@ class MainWindow(QMainWindow):
         screenshot_action = QAction("Bildschirmfoto", self)
         screenshot_action.triggered.connect(self.take_screenshot)
         file_menu.addAction(screenshot_action)
+
+        #Ansicht----------------------------------------------------
+        # Ansicht Menü---------------------------------------------------------------
+        view_menu = menu_bar.addMenu("Ansicht")
+
+        view_x_action = QAction("X-Achse", self)
+        view_x_action.triggered.connect(self.set_view_x)
+        view_menu.addAction(view_x_action)
+
+        view_y_action = QAction("Y-Achse", self)
+        view_y_action.triggered.connect(self.set_view_y)
+        view_menu.addAction(view_y_action)
+
+        view_z_action = QAction("Z-Achse", self)
+        view_z_action.triggered.connect(self.set_view_z)
+        view_menu.addAction(view_z_action)
 
         # Aktion "Exit" zum Beenden der Anwendung
         exit_action = QAction("Exit", self)
@@ -211,6 +226,17 @@ class MainWindow(QMainWindow):
         # Screenshot des VTK-Renderers aufnehmen und speichern
         self.vtk_widget.save_screenshot(file_path) #verbindung zu vtkRenderWidget
         self.status_bar.showMessage(f"VTK Screenshot saved to {file_path}")
+    
+    #Ansicht------------------------------------------------------------------------------------------------
+    def set_view_x(self):
+        self.vtk_widget.set_camera_view('x')
+
+    def set_view_y(self):
+        self.vtk_widget.set_camera_view('y')
+
+    def set_view_z(self):
+        self.vtk_widget.set_camera_view('z')
+
 
 class VTKRenderWidget(QWidget):
     def __init__(self):
@@ -224,8 +250,13 @@ class VTKRenderWidget(QWidget):
         self.renderer = vtk.vtkRenderer()
         self.vtk_widget.GetRenderWindow().AddRenderer(self.renderer)
 
+        self._add_orientation_axes()
+
         self.vtk_widget.GetRenderWindow().Render()
         self.vtk_widget.Start()
+
+        # Binde Maus-Events an das Hauptfenster
+        self.vtk_widget.GetRenderWindow().GetInteractor().AddObserver("LeftButtonPressEvent", self._on_left_click)
 
     def load_model(self, file_name):
         # Debug-Ausgabe, um zu prüfen, ob die Datei geladen wird
@@ -235,12 +266,6 @@ class VTKRenderWidget(QWidget):
         reader = vtk.vtkOBJReader()
         reader.SetFileName(file_name) #Dateiname setzen
         reader.Update() # laden der Datei
-
-        # Prüfen, ob Punkte im Modell vorhanden sind funktioniert no nd!!!!!
-        output = reader.GetOutput()
-        if output.GetNumberOfPoints() == 0:
-            print("Fehler: .obj Datei enthält keine Punkte. Datei prüfen!")
-            return
 
         #mappen der Geometry zu einem Aktor
         mapper = vtk.vtkPolyDataMapper()
@@ -271,7 +296,7 @@ class VTKRenderWidget(QWidget):
         self.renderer.SetBackground(color) # farbe ändern
         self.vtk_widget.GetRenderWindow().Render() #aktualisieren
 
-    #Screenshot----------------------------------------------------------------
+    #Screenshot-------------------------------------------------------------------------------------------------------------------
     def save_screenshot(self, file_path: str): #Speichert Screenshot nur von VTK-Renderer
         
         # VTK Screenshot
@@ -285,3 +310,105 @@ class VTKRenderWidget(QWidget):
         writer.SetFileName(file_path)
         writer.SetInputConnection(window_to_image.GetOutputPort())
         writer.Write()
+
+    # absolutes Koordinatensystem in Ecke-------------------------------------------------------------------------------------------
+    def _add_orientation_axes(self): #Fügt ein Koordinatensystem in der rechten unteren Ecke hinzu
+        axes = vtk.vtkAxesActor()
+
+        axes.SetTotalLength(2.0, 2.0, 2.0)  # Achsenlängen auf das Doppelte setzen versuch achsen besser zu trefen funktioniert nicht
+        axes.SetShaftTypeToCylinder()       # Achsen als Zylinder darstellen
+        axes.SetCylinderRadius(0.1)        # Radius der Zylinderachsen
+        axes.SetConeRadius(0.5)            # Radius der Achsenspitzen
+
+        self.orientation_widget = vtk.vtkOrientationMarkerWidget()
+        self.orientation_widget.SetOrientationMarker(axes)
+        self.orientation_widget.SetInteractor(self.vtk_widget.GetRenderWindow().GetInteractor())
+
+        # Position in der rechten unteren Ecke fixieren
+        self.orientation_widget.SetViewport(0.8, 0.0, 1.0, 0.3)  # Normalisierte Koordinaten (x_min, y_min, x_max, y_max)
+        self.orientation_widget.SetEnabled(1)
+        self.orientation_widget.InteractiveOff()
+
+    # Ansicht------------------------------------------------------
+
+    def set_camera_view(self, axis):
+        camera = self.renderer.GetActiveCamera()
+        if axis == 'x':
+            camera.SetPosition(10, 0, 0)  # Blick entlang der X-Achse
+            camera.SetFocalPoint(0, 0, 0)  # Fokus auf den Ursprung
+            camera.SetViewUp(0, 0, 1)  # Z-Achse zeigt nach oben
+        elif axis == 'y':
+            camera.SetPosition(0, 10, 0)
+            camera.SetFocalPoint(0, 0, 0)
+            camera.SetViewUp(0, 0, 1)
+        elif axis == 'z':
+            camera.SetPosition(0, 0, 10)
+            camera.SetFocalPoint(0, 0, 0)
+            camera.SetViewUp(0, 1, 0)
+        
+        self.renderer.ResetCamera()
+        self.vtk_widget.GetRenderWindow().Render()
+
+    # Versuch einer weiteren Achsenausrichtung------------------------------------------------------------------
+    def _on_left_click(self, caller, event): #richtet die Kamera basierend auf der Farbe der Koordinatenachsen aus
+        click_pos = caller.GetEventPosition()
+        print(f"Mausklick: {click_pos}")
+
+        # zugriff aug RenderWindow
+        render_window = self.vtk_widget.GetRenderWindow()
+        width, height = render_window.GetSize()
+        print(f"Fenstergröße: {width}x{height}")
+
+        #für späteres minimieren der Klickpositionen
+            # Berechnung des Viewports reduzierung auf unteres Fenster 
+        #x_min, y_min = int(0.8 * window_width), 0
+        #x_max, y_max = window_width, int(0.2 * window_height)
+
+            # Prüfen, ob der Klick innerhalb des Viewports liegt
+        #if not (x_min <= click_pos[0] <= x_max and y_min <= click_pos[1] <= y_max):
+            #print("Klick außerhalb des Achsensystems")
+            #return
+
+        # Offscreen-Rendering für die Farben
+        window_to_image = vtk.vtkWindowToImageFilter()
+        window_to_image.SetInput(render_window)
+        window_to_image.ReadFrontBufferOn()
+        window_to_image.Update()
+
+        x, y = click_pos
+        y = height - y - 1  # Y-Achse invertieren
+        image = window_to_image.GetOutput()
+
+        pixel = (
+            int(image.GetScalarComponentAsDouble(x, y, 0, 0)),
+            int(image.GetScalarComponentAsDouble(x, y, 0, 1)),
+            int(image.GetScalarComponentAsDouble(x, y, 0, 2))
+        )
+        print(f"Klickposition RGB-Werte: {pixel}")
+
+        # Funktion zur Farbprüfung mit Toleranz
+        def is_close_to_color(color, target, tolerance=150):
+            return all(abs(c - t) <= tolerance for c, t in zip(color, target))
+
+        # Kamera basierend auf der Farbe ausrichten
+        camera = self.renderer.GetActiveCamera()
+        if is_close_to_color(pixel, (255, 0, 0)):  # X-Achse (Rot)
+            print("X-Achse ausgewählt")
+            camera.SetPosition(10, 0, 0)  # Blick entlang der X-Achse
+            camera.SetFocalPoint(0, 0, 0)  # Fokus auf den Ursprung
+            camera.SetViewUp(0, 0, 1)  # Z-Achse zeigt nach oben
+        elif is_close_to_color(pixel, (0, 255, 0)):  # Y-Achse (Grün)
+            print("Y-Achse ausgewählt")
+            camera.SetPosition(0, 10, 0)
+            camera.SetFocalPoint(0, 0, 0)
+            camera.SetViewUp(0, 0, 1)
+        elif is_close_to_color(pixel, (0, 0, 255)):  # Z-Achse (Blau)
+            print("Z-Achse ausgewählt")
+            camera.SetPosition(0, 0, 10)
+            camera.SetFocalPoint(0, 0, 0)
+            camera.SetViewUp(0, 1, 0)
+        else:
+            print("Keine gültige Achse ausgewählt")
+
+        self.renderer.ResetCamera()
+        self.vtk_widget.GetRenderWindow().Render()
