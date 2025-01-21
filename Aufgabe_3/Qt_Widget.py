@@ -1,8 +1,9 @@
 #import sys
 from PyQt5.QtWidgets import (
-    QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu, QColorDialog
+    QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu, QColorDialog,
+    QDialog, QLabel, QListWidget, QPushButton, QTreeWidget, QTreeWidgetItem # zusatz für Egenschaften
 )
-from PyQt5.QtGui import QScreen
+from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QFileDialog
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 import vtk
@@ -119,6 +120,9 @@ class MainWindow(QMainWindow):
                 mbs_objects = readInput(file_name)
                 self.model = mbsModel()
                 self.model.load_objects(mbs_objects)  # Neue Methode im mbsModel
+
+                # Modell an VTKRenderWidget übergeben
+                self.vtk_widget.model = self.model # sonst wird nach Eigenschaften nix angezeigt
 
                 # Visualisiere das Modell im Renderer
                 self.vtk_widget.render_model(self.model)
@@ -257,6 +261,9 @@ class VTKRenderWidget(QWidget):
 
         # Binde Maus-Events an das Hauptfenster
         self.vtk_widget.GetRenderWindow().GetInteractor().AddObserver("LeftButtonPressEvent", self._on_left_click)
+
+        # Rechtsklick ermöglichen für Eigenschaftsfenster (nur bei fdd Files)
+        self.vtk_widget.GetRenderWindow().GetInteractor().AddObserver("RightButtonPressEvent", self._show_context_menu)
 
     def load_model(self, file_name):
         # Debug-Ausgabe, um zu prüfen, ob die Datei geladen wird
@@ -412,3 +419,73 @@ class VTKRenderWidget(QWidget):
 
         self.renderer.ResetCamera()
         self.vtk_widget.GetRenderWindow().Render()
+
+    # Anzeigen der Eigenschaften (nur bei fdd Files)
+
+    def _show_context_menu(self, caller, event):                            #caller,event: funktioniert als Callback caller: was ausgelöst, event: Ereigniss
+        # Deaktivieren von Interaktor um zoomen zu unterbinden (nd so schön)
+        self.vtk_widget.GetRenderWindow().GetInteractor().Disable()
+
+        menu = QMenu(self)
+        show_props_action = menu.addAction("Eigenschaften anzeigen")
+        show_props_action.triggered.connect(self._show_properties_dialog)
+        menu.exec_(self.mapToGlobal(self.vtk_widget.mapFromGlobal(QCursor.pos())))
+
+        # wieder aktivieren
+        self.vtk_widget.GetRenderWindow().GetInteractor().Enable()
+
+    def _show_properties_dialog(self):
+        # Sicherstellen, dass ein Modell geladen ist
+        if hasattr(self, "model") and hasattr(self.model, "get_mbsObjectList"):# überprüfen gibt es Methode
+            dialog = PropertiesDialog(self.model.get_mbsObjectList()) # "Getter" aufrufen
+            dialog.exec_()
+
+
+
+class PropertiesDialog(QDialog):
+    def __init__(self, mbs_objects):
+        super().__init__()
+        self.setWindowTitle("Eigenschaften") #fenstertitel
+
+        layout = QVBoxLayout() #hauptlayout
+
+        # Liste der Objekte
+        self.object_list = QListWidget() # Widget zur Anzeige der Objektliste
+        for obj in mbs_objects:
+            self.object_list.addItem(obj.getType() + " - " + obj.getSubType())
+        layout.addWidget(self.object_list)
+
+        # Eigenschaften-Anzeige als Tree
+        self.properties_tree = QTreeWidget()
+        self.properties_tree.setHeaderLabels(["Eigenschaft", "Typ", "Wert"]) #kopfzeile setzen
+        layout.addWidget(self.properties_tree) #tree zum layout
+
+        # Event bei Auswahl eines Objekts
+        self.object_list.currentRowChanged.connect(self._update_properties)
+
+        # Schließen-Button
+        close_button = QPushButton("Schließen")
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button)
+
+        self.setLayout(layout) # Layout dem Dialog zuweisen
+        self.mbs_objects = mbs_objects # Liste der Objekte speichern
+
+    def _update_properties(self, index):
+        if index >= 0:
+            selected_object = self.mbs_objects[index]
+            properties = selected_object.inspect_object() #eigenschaften abrufen
+
+            # Tree aktualisieren
+            self.properties_tree.clear()
+            root_item = QTreeWidgetItem([properties["type"], "", ""]) #hauptknoten erstellen
+            self.properties_tree.addTopLevelItem(root_item) #hauptknoten hinzufügen
+
+            # Parameter als untergeordnete Items hinzufügen
+            for key, details in properties["parameters"].items():
+                param_item = QTreeWidgetItem(
+                    [key, details["type"], str(details["value"])] # Schlüssel, Typ und Wert hinzufügen
+                )
+                root_item.addChild(param_item)
+
+            self.properties_tree.expandAll()

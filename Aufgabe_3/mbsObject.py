@@ -97,3 +97,20 @@ class mbsObject:
     def hide(self, renderer):
         for actor in self.actors:
             renderer.RemoveActor(actor)
+    
+    # Eigenschaften Körper für fdd anzeigen lassen--------------------------------
+    def inspect_object(self):       #Ausgeben der Eigenschaften des Objekts in strukturierter Form
+
+        object_data = {                             #speichern der Daten type, subtype und deren parameter
+            "type": self.getType(),
+            "subtype": self.getSubType(),
+            "parameters": {}
+        }
+
+        for key, value in self.parameter.items():   #iterieren über parameter um zu strukturieren
+            object_data["parameters"][key] = {      #neuer eintag in object
+                "type": value["type"],
+                "value": value["value"]
+            }
+
+        return object_data
