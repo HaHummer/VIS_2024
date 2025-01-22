@@ -4,9 +4,11 @@ import sys
 
 class mbsObject:
     def __init__(self,type,subtype,**kwargs):
+        #Initialisiert ein mbsObject mit Typ, Subtyp und optionalen Parametern.
         self.__type = type
         self._subtype = subtype
         self._symbolsScale = 10.
+        # Parameter überprüfen und setzen
         if "parameter" in kwargs:
             self.parameter = kwargs["parameter"]
         else:
@@ -14,6 +16,7 @@ class mbsObject:
 
         self.actors = []
 
+        # Zusätzliche Textdaten verarbeiten, falls vorhanden
         if "text" in kwargs:
             for line in kwargs["text"]:
                 splitted = line.split(":")
@@ -21,6 +24,7 @@ class mbsObject:
                     keyString = splitted[0].strip()
                     valueString = line[len(key)+1:].strip()
                     if(keyString == key):
+                        # Wert entsprechend des Typs konvertieren und speichern
                         if(self.parameter[key]["type"] == "float"):
                             self.parameter[key]["value"] = self.str2float(valueString)
                         elif(self.parameter[key]["type"] == "vector"):

@@ -1,7 +1,7 @@
 #import sys
 from PyQt5.QtWidgets import (
     QMainWindow, QAction, QFileDialog, QVBoxLayout, QWidget, QStatusBar, QMenu, QColorDialog,
-    QDialog, QLabel, QListWidget, QPushButton, QTreeWidget, QTreeWidgetItem # zusatz für Egenschaften
+    QDialog, QListWidget, QPushButton, QTreeWidget, QTreeWidgetItem # zusatz für Egenschaften
 )
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QFileDialog
@@ -24,7 +24,7 @@ class MainWindow(QMainWindow):
         # Statusleiste hinzufügen
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar) # setzen der Statusleiste
-        self.update_status("No model loaded")
+        self.update_status("No model loaded") #Statsmeldung
 
         # VTK RenderWindow
         self.vtk_widget = VTKRenderWidget()
@@ -107,10 +107,10 @@ class MainWindow(QMainWindow):
 
     def load_model(self):
         #öffnet DateiDialog um Nodell zu laden
-        file_name, _ = QFileDialog.getOpenFileName(self, "Load Model", "", "Model Files (*.vtk *.stl *.obj);;All Files (*)")
-        if file_name:
-            self.update_status(f"Loaded model: {file_name}")
-            self.vtk_widget.load_model(file_name)
+        file_name, _ = QFileDialog.getOpenFileName(self, "Load Model", "", "Model Files (*.vtk *.stl *.obj);;All Files (*)") #Verweis aktuelles Fenster/Titel/"" Standardpfad
+        if file_name:                                           #überprüfen ob Datei ausgewählt
+            self.update_status(f"Loaded model: {file_name}")    #Statusleiste unten
+            self.vtk_widget.load_model(file_name)               #Dateiname an VTK-Widget
 
     def import_fdd(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Load Fdd File", "", "Fdd Files (*.fdd);;All Files (*)")
@@ -126,9 +126,9 @@ class MainWindow(QMainWindow):
 
                 # Visualisiere das Modell im Renderer
                 self.vtk_widget.render_model(self.model)
-                # Kamera auf das Modell ausrichten
-                self.vtk_widget.renderer.ResetCamera() # kamera reseten um nicht zu weit im modell zu sein, funktioniert jedoch nicht
-                self.vtk_widget.vtk_widget.GetRenderWindow().Render() #2mal vtk_widget da außerhalb
+                
+                self.vtk_widget.renderer.ResetCamera() # kamera reseten um nicht zu weit im modell zu sein
+                self.vtk_widget.vtk_widget.GetRenderWindow().Render() #Fenster aktualisieren
 
                 self.update_status(f"Loaded Fdd file: {file_name}")
             except Exception as e:
@@ -136,17 +136,17 @@ class MainWindow(QMainWindow):
                 print(e)
 
     def load_JSON(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Load Model from JSON", "", "JSON Files (*.json);;All Files (*)")
+        file_name, _ = QFileDialog.getOpenFileName(self, "Load Model from JSON", "", "JSON Files (*.json);;All Files (*)") # öffnen Dateidialog
         if file_name:
             try:
                 # JSON-Daten ins Modell laden
                 self.model = mbsModel()
-                self.model.loadDatabase(file_name)
+                self.model.loadDatabase(file_name) #JSON daten in Modell laden
 
                 # Modell visualisieren
                 self.vtk_widget.render_model(self.model)
                 self.vtk_widget.renderer.ResetCamera()
-                self.vtk_widget.vtk_widget.GetRenderWindow().Render()
+                self.vtk_widget.vtk_widget.GetRenderWindow().Render() # fenter aktualisieren
 
                 self.update_status(f"Model loaded from: {file_name}")
             except Exception as e:
@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
                 self.update_status(f"Error saving model: {e}")
                 print(e)
 
-    def update_status(self, message):
+    def update_status(self, message): #Statusleiste implementiert
         self.status_bar.showMessage(message)
 
     # Hintergrundfarben-------------------------------------------------------------------------
@@ -189,7 +189,7 @@ class MainWindow(QMainWindow):
         
             # Hexadezimalwert für die GUI für den äußeren Rand
             hex_color = color.name()  # Erhalte Hex-Wert (z. B. #RRGGBB)
-            self.setStyleSheet(f"QMainWindow {{background-color: {hex_color};}}")  # GUI-Hintergrund ändern
+            self.setStyleSheet(f"QMainWindow {{background-color: {hex_color}}}")  # GUI-Hintergrund ändern
 
         self.update_status(f"Custom color set: {hex_color}")
 
@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
             return
 
         # Screenshot des VTK-Renderers aufnehmen und speichern
-        self.vtk_widget.save_screenshot(file_path) #verbindung zu vtkRenderWidget
+        self.vtk_widget.save_screenshot(file_path) # speichern des screenshots verbindung zu vtk widget
         self.status_bar.showMessage(f"VTK Screenshot saved to {file_path}")
     
     #Ansicht------------------------------------------------------------------------------------------------
@@ -243,23 +243,29 @@ class MainWindow(QMainWindow):
 
 
 class VTKRenderWidget(QWidget):
+    #laden, rendern, ineragieren mit 3d Modellen
     def __init__(self):
         super().__init__()
+        #Layout für Widget
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
-        self.vtk_widget = QVTKRenderWindowInteractor(self) #erstellen VTK widget
-        self.layout.addWidget(self.vtk_widget) #zum layout hinzufügen
+        # VTK-Interactor-Widget erstellen und zum Layout hinzufügen
+        self.vtk_widget = QVTKRenderWindowInteractor(self) #verbinden von VTK mit PyQt
+        self.layout.addWidget(self.vtk_widget)
 
+        # VTK-Renderer initialisieren und dem Renderfenster hinzufügen
         self.renderer = vtk.vtkRenderer()
         self.vtk_widget.GetRenderWindow().AddRenderer(self.renderer)
 
+        #hinzufügen KoSy
         self._add_orientation_axes()
 
+        # Initiales Rendern und Starten des Interactors
         self.vtk_widget.GetRenderWindow().Render()
         self.vtk_widget.Start()
 
-        # Binde Maus-Events an das Hauptfenster
+        # Binde linksklick an das Hauptfenster
         self.vtk_widget.GetRenderWindow().GetInteractor().AddObserver("LeftButtonPressEvent", self._on_left_click)
 
         # Rechtsklick ermöglichen für Eigenschaftsfenster (nur bei fdd Files)
@@ -269,33 +275,31 @@ class VTKRenderWidget(QWidget):
         # Debug-Ausgabe, um zu prüfen, ob die Datei geladen wird
         print(f"Lade Modell aus Datei: {file_name}")
 
-        # Modell aus Datei laden
+        # reader zum Laden des .obj erstellen
         reader = vtk.vtkOBJReader()
         reader.SetFileName(file_name) #Dateiname setzen
         reader.Update() # laden der Datei
 
-        #mappen der Geometry zu einem Aktor
+        #mappen der Geometry zu einem Aktor Verknüpfung Geometrie und Renderer
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputConnection(reader.GetOutputPort()) # verbinden von mapper und reader
 
         actor = vtk.vtkActor()
         actor.SetMapper(mapper) # verbinden actor mit mapper
 
-
         self.renderer.RemoveAllViewProps() #entfernen vorheriger Objekte
         self.renderer.AddActor(actor)
+
         self.renderer.ResetCamera()  # Kamera auf das Modell ausrichten## wichtig damit fenster nicht weiß
-        # Rendern
-        self.vtk_widget.GetRenderWindow().Render()
+        self.vtk_widget.GetRenderWindow().Render()        # Szene Rendern
 
     def render_model(self, model: mbsModel):
-        # Fügt alle Akteure des Modells zum Renderer hinzu
-        self.renderer.RemoveAllViewProps()
+        """zeigt alle Actors eines Modells im Renderer an"""
+        self.renderer.RemoveAllViewProps() # entfernen vorheriger Darstellungen
 
         model.showModel(self.renderer)## visualisiere neues Modell
          # Kamera neu ausrichten um zoom problem zu beheben
         self.renderer.ResetCamera()
-
         self.vtk_widget.GetRenderWindow().Render()
 
     #Hintergrundstil
@@ -307,16 +311,16 @@ class VTKRenderWidget(QWidget):
     def save_screenshot(self, file_path: str): #Speichert Screenshot nur von VTK-Renderer
         
         # VTK Screenshot
-        render_window = self.vtk_widget.GetRenderWindow()
+        render_window = self.vtk_widget.GetRenderWindow()   # Zugriff auf das aktuelle Renderfenster
         window_to_image = vtk.vtkWindowToImageFilter()
-        window_to_image.SetInput(render_window)
-        window_to_image.Update()
+        window_to_image.SetInput(render_window)             # Renderfenster setzen
+        window_to_image.Update()                            #Bild generieren
 
         # Bild in Datei schreiben
         writer = vtk.vtkPNGWriter()
-        writer.SetFileName(file_path)
-        writer.SetInputConnection(window_to_image.GetOutputPort())
-        writer.Write()
+        writer.SetFileName(file_path) #Dateiname setzen
+        writer.SetInputConnection(window_to_image.GetOutputPort()) #Bilddaten verbinden
+        writer.Write() # Speichern
 
     # absolutes Koordinatensystem in Ecke-------------------------------------------------------------------------------------------
     def _add_orientation_axes(self): #Fügt ein Koordinatensystem in der rechten unteren Ecke hinzu
@@ -325,7 +329,7 @@ class VTKRenderWidget(QWidget):
         axes.SetTotalLength(2.0, 2.0, 2.0)  # Achsenlängen auf das Doppelte setzen versuch achsen besser zu trefen funktioniert nicht
         axes.SetShaftTypeToCylinder()       # Achsen als Zylinder darstellen
         axes.SetCylinderRadius(0.1)        # Radius der Zylinderachsen
-        axes.SetConeRadius(0.5)            # Radius der Achsenspitzen
+        axes.SetConeRadius(1)            # Radius der Achsenspitzen
 
         self.orientation_widget = vtk.vtkOrientationMarkerWidget()
         self.orientation_widget.SetOrientationMarker(axes)
@@ -333,13 +337,13 @@ class VTKRenderWidget(QWidget):
 
         # Position in der rechten unteren Ecke fixieren
         self.orientation_widget.SetViewport(0.8, 0.0, 1.0, 0.3)  # Normalisierte Koordinaten (x_min, y_min, x_max, y_max)
-        self.orientation_widget.SetEnabled(1)
+        self.orientation_widget.SetEnabled(1) #widget aktivieren
         self.orientation_widget.InteractiveOff()
 
     # Ansicht------------------------------------------------------
 
     def set_camera_view(self, axis):
-        camera = self.renderer.GetActiveCamera()
+        camera = self.renderer.GetActiveCamera() #zugriff auf aktive Kamera
         if axis == 'x':
             camera.SetPosition(10, 0, 0)  # Blick entlang der X-Achse
             camera.SetFocalPoint(0, 0, 0)  # Fokus auf den Ursprung
@@ -353,6 +357,7 @@ class VTKRenderWidget(QWidget):
             camera.SetFocalPoint(0, 0, 0)
             camera.SetViewUp(0, 1, 0)
         
+        # Kamera zurücksetzen und Szene neu rendern
         self.renderer.ResetCamera()
         self.vtk_widget.GetRenderWindow().Render()
 
@@ -361,7 +366,7 @@ class VTKRenderWidget(QWidget):
         click_pos = caller.GetEventPosition()
         print(f"Mausklick: {click_pos}")
 
-        # zugriff aug RenderWindow
+        # zugriff aug RenderWindow und dessen DIM
         render_window = self.vtk_widget.GetRenderWindow()
         width, height = render_window.GetSize()
         print(f"Fenstergröße: {width}x{height}")
@@ -378,7 +383,7 @@ class VTKRenderWidget(QWidget):
 
         # Offscreen-Rendering für die Farben
         window_to_image = vtk.vtkWindowToImageFilter()
-        window_to_image.SetInput(render_window)
+        window_to_image.SetInput(render_window) # Renderfenster als Eingabe setzen
         window_to_image.ReadFrontBufferOn()
         window_to_image.Update()
 
@@ -387,7 +392,7 @@ class VTKRenderWidget(QWidget):
         image = window_to_image.GetOutput()
 
         pixel = (
-            int(image.GetScalarComponentAsDouble(x, y, 0, 0)),
+            int(image.GetScalarComponentAsDouble(x, y, 0, 0)),  #z=0; 0 Rot, 1 Grüm, 2 Blau
             int(image.GetScalarComponentAsDouble(x, y, 0, 1)),
             int(image.GetScalarComponentAsDouble(x, y, 0, 2))
         )
@@ -417,28 +422,34 @@ class VTKRenderWidget(QWidget):
         else:
             print("Keine gültige Achse ausgewählt")
 
+        # Kamera zurücksetzen und Szene neu rendern
         self.renderer.ResetCamera()
         self.vtk_widget.GetRenderWindow().Render()
 
-    # Anzeigen der Eigenschaften (nur bei fdd Files)
+    # Anzeigen der Eigenschaften (nur bei fdd Files)-----------------------------------------------------------------------------------------------------------
 
     def _show_context_menu(self, caller, event):                            #caller,event: funktioniert als Callback caller: was ausgelöst, event: Ereigniss
         # Deaktivieren von Interaktor um zoomen zu unterbinden (nd so schön)
         self.vtk_widget.GetRenderWindow().GetInteractor().Disable()
 
-        menu = QMenu(self)
+        menu = QMenu(self)# erstellen Kontextmenü
         show_props_action = menu.addAction("Eigenschaften anzeigen")
-        show_props_action.triggered.connect(self._show_properties_dialog)
+        show_props_action.triggered.connect(self._show_properties_dialog) # verknüpfen mit Methode show_properties_dialog
+        # Position des Menüs an der aktuellen Mausposition anzeigen
+        # mapFromGlobal: Ermittelt die Mausposition relativ zum Widget (Chat)
         menu.exec_(self.mapToGlobal(self.vtk_widget.mapFromGlobal(QCursor.pos())))
 
         # wieder aktivieren
         self.vtk_widget.GetRenderWindow().GetInteractor().Enable()
 
-    def _show_properties_dialog(self):
+    def _show_properties_dialog(self):                  #(chat)
+        """Zeigt ein Dialogfenster mit den Eigenschaften der geladenen Objekte an.
+        Funktioniert nur, wenn ein Modell geladen ist, das die Methode `get_mbsObjectList` unterstützt."""
         # Sicherstellen, dass ein Modell geladen ist
-        if hasattr(self, "model") and hasattr(self.model, "get_mbsObjectList"):# überprüfen gibt es Methode
+        if hasattr(self, "model") and hasattr(self.model, "get_mbsObjectList"):# überprüfen gibt es Methode und ob liste existiert
+            # Eigenschaften-Dialog mit der Liste der Objekte im Modell erstellen
             dialog = PropertiesDialog(self.model.get_mbsObjectList()) # "Getter" aufrufen
-            dialog.exec_()
+            dialog.exec_() #fenster anzeigen
 
 
 
@@ -449,19 +460,20 @@ class PropertiesDialog(QDialog):
 
         layout = QVBoxLayout() #hauptlayout
 
-        # Liste der Objekte
+        # Liste der Objekte hinzufügen
         self.object_list = QListWidget() # Widget zur Anzeige der Objektliste
         for obj in mbs_objects:
+            # Objekttyp und Subtyp in die Liste einfügen
             self.object_list.addItem(obj.getType() + " - " + obj.getSubType())
         layout.addWidget(self.object_list)
 
         # Eigenschaften-Anzeige als Tree
         self.properties_tree = QTreeWidget()
         self.properties_tree.setHeaderLabels(["Eigenschaft", "Typ", "Wert"]) #kopfzeile setzen
-        layout.addWidget(self.properties_tree) #tree zum layout
+        layout.addWidget(self.properties_tree) #tree zum layout hinzufügen
 
         # Event bei Auswahl eines Objekts
-        self.object_list.currentRowChanged.connect(self._update_properties)
+        self.object_list.currentRowChanged.connect(self._update_properties) # Bei Auswahl eines Objekts wird `_update_properties` aufgerufen
 
         # Schließen-Button
         close_button = QPushButton("Schließen")
@@ -472,20 +484,20 @@ class PropertiesDialog(QDialog):
         self.mbs_objects = mbs_objects # Liste der Objekte speichern
 
     def _update_properties(self, index):
-        if index >= 0:
-            selected_object = self.mbs_objects[index]
-            properties = selected_object.inspect_object() #eigenschaften abrufen
+        if index >= 0:                      #prüft ob gültiger Index (nicht Negativ)
+            selected_object = self.mbs_objects[index] #ausgewählte object aufrufen
+            properties = selected_object.inspect_object() #eigenschaften von object abrufen
 
             # Tree aktualisieren
             self.properties_tree.clear()
-            root_item = QTreeWidgetItem([properties["type"], "", ""]) #hauptknoten erstellen
+            root_item = QTreeWidgetItem([properties["type"], "", ""]) #hauptknoten (z.B: Body) erstellen
             self.properties_tree.addTopLevelItem(root_item) #hauptknoten hinzufügen
 
             # Parameter als untergeordnete Items hinzufügen
             for key, details in properties["parameters"].items():
                 param_item = QTreeWidgetItem(
-                    [key, details["type"], str(details["value"])] # Schlüssel, Typ und Wert hinzufügen
+                    [key, details["type"], str(details["value"])] # Schlüssel/Name, Typ und Wert hinzufügen
                 )
-                root_item.addChild(param_item)
+                root_item.addChild(param_item) # Parameterknoten zum Hauptknoten hinzufügen
 
-            self.properties_tree.expandAll()
+            self.properties_tree.expandAll()   # Den gesamten Baum erweitern, damit alle Details sichtbar sind

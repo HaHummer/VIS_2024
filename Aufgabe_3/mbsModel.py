@@ -75,7 +75,6 @@ class mbsModel:
             object.show(renderer)
 
     # Eigenschaften-----------------
-
     def get_mbsObjectList(self):
         #Liste der geladenen mbs-Objekte zurückgeben
         return self.__mbsObjectList
